@@ -1,9 +1,19 @@
 /*
- * To the extent possible under law, the Fiji developers have waived
- * all copyright and related or neighboring rights to this tutorial code.
+ * Copyright (c) 2013, Graeme Ball
+ * Micron Oxford, University of Oxford, Department of Biochemistry.
  *
- * See the CC0 1.0 Universal license for details:
- *     http://creativecommons.org/publicdomain/zero/1.0/
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see http://www.gnu.org/licenses/ .
  */
 
 import ij.IJ;
@@ -14,12 +24,10 @@ import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
 
 /**
- * ProcessPixels
+ * A "probabilistic" temporal median filter to extract a foreground
+ * probability map from a time sequence.
  *
- * A template for processing each pixel of either
- * GRAY8, GRAY16, GRAY32 or COLOR_RGB images.
- *
- * @author The Fiji Team
+ * @author graemeball@googlemail.com
  */
 public class Temporal_Median implements PlugInFilter {
 	protected ImagePlus image;
@@ -27,10 +35,14 @@ public class Temporal_Median implements PlugInFilter {
 	// image property members
 	private int width;
 	private int height;
+	private int nt;
+	private int nz;
+	private int nc;
 
 	// plugin parameters
-	public double value;
-	public String name;
+	public int twh;     // time window half-width for median calc
+	public double nsd;  // number of stdev's above median for foreground
+	public int value = 1;   // TODO, bin this junk
 
 	/**
 	 * @see ij.plugin.filter.PlugInFilter#setup(java.lang.String, ij.ImagePlus)
@@ -43,6 +55,9 @@ public class Temporal_Median implements PlugInFilter {
 		}
 
 		image = imp;
+		nt = imp.getNFrames();
+		nz = imp.getNSlices();
+		nc = imp.getNChannels();
 		return DOES_8G | DOES_16 | DOES_32 | DOES_RGB;
 	}
 
@@ -59,22 +74,26 @@ public class Temporal_Median implements PlugInFilter {
 			process(ip);
 			image.updateAndDraw();
 		}
+		
+		IJ.log("nt=" + nt);
+		IJ.log("nz=" + nz);
+		IJ.log("nc=" + nc);
 	}
 
 	private boolean showDialog() {
 		GenericDialog gd = new GenericDialog("Temporal Median");
 
 		// default value is 0.00, 2 digits right of the decimal point
-		gd.addNumericField("value", 5, 0);
-		//gd.addStringField("name", "John");
+		gd.addNumericField("time window half-width", 5, 0);
+		gd.addNumericField("stdevs over median for foreground", 3, 0);
 
 		gd.showDialog();
 		if (gd.wasCanceled())
 			return false;
 
 		// get entered values
-		value = gd.getNextNumber();
-		//name = gd.getNextString();
+		twh = (int)gd.getNextNumber();
+		nsd = gd.getNextNumber();
 
 		return true;
 	}
@@ -160,15 +179,16 @@ public class Temporal_Median implements PlugInFilter {
 
 	public void showAbout() {
 		IJ.showMessage("TemporalMedian",
-			"A temporal median filter"
+			"A probabilistic temporal median filter, as described in " +
+			"Parton et al. (2011), JCB 194 (1): 121."
 		);
 	}
 
 	/**
 	 * Main method for debugging.
 	 *
-	 * For debugging, it is convenient to have a method that starts ImageJ, loads an
-	 * image and calls the plugin, e.g. after setting breakpoints.
+	 * For debugging - start ImageJ, load a test image, and call the 
+	 * plugin.
 	 *
 	 * @param args unused
 	 */
