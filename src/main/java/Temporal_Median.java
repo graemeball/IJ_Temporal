@@ -19,9 +19,11 @@
 import ij.IJ;
 import ij.ImageJ;
 import ij.ImagePlus;
+import ij.ImageStack;
 import ij.gui.GenericDialog;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
+import ij.process.FloatProcessor;
 
 /**
  * A "probabilistic" temporal median filter to extract a foreground
@@ -58,7 +60,9 @@ public class Temporal_Median implements PlugInFilter {
 		nt = imp.getNFrames();
 		nz = imp.getNSlices();
 		nc = imp.getNChannels();
-		return DOES_8G | DOES_16 | DOES_32 | DOES_RGB;
+		//return DOES_8G | DOES_16 | DOES_32 | DOES_RGB; 
+		return DOES_8G | DOES_16 | DOES_32 | DOES_RGB
+		        | CONVERT_TO_FLOAT | STACK_REQUIRED | NO_CHANGES;
 	}
 
 	/**
@@ -71,13 +75,10 @@ public class Temporal_Median implements PlugInFilter {
 		height = ip.getHeight();
 
 		if (showDialog()) {
-			process(ip);
-			image.updateAndDraw();
+			ImagePlus imResult = process(image);
+			imResult.updateAndDraw();
+			imResult.show();
 		}
-		
-		IJ.log("nt=" + nt);
-		IJ.log("nz=" + nz);
-		IJ.log("nc=" + nc);
 	}
 
 	private boolean showDialog() {
@@ -99,62 +100,32 @@ public class Temporal_Median implements PlugInFilter {
 	}
 
 	/**
-	 * Process an image.
+	 * Process each image slice, returning new foreground ImagePlus.
 	 *
-	 * Please provide this method even if {@link ij.plugin.filter.PlugInFilter} does require it;
-	 * the method {@link ij.plugin.filter.PlugInFilter#run(ij.process.ImageProcessor)} can only
-	 * handle 2-dimensional data.
-	 *
-	 * If your plugin does not change the pixels in-place, make this method return the results and
-	 * change the {@link #setup(java.lang.String, ij.ImagePlus)} method to return also the
-	 * <i>DOES_NOTHING</i> flag.
-	 *
-	 * @param image the image (possible multi-dimensional)
+	 * @param image (multi-dimensional, i.e. multiple frames)
 	 */
-	public void process(ImagePlus image) {
+	public ImagePlus process(ImagePlus image) {
+	    ImageStack stackResult = new ImageStack(width, height);
+	    
 		// slice numbers start with 1 for historical reasons
-		for (int i = 1; i <= image.getStackSize(); i++)
-			process(image.getStack().getProcessor(i));
-	}
-
-	// Select processing method depending on image type
-	public void process(ImageProcessor ip) {
-		int type = image.getType();
-		if (type == ImagePlus.GRAY8)
-			process( (byte[]) ip.getPixels() );
-		else if (type == ImagePlus.GRAY16)
-			process( (short[]) ip.getPixels() );
-		else if (type == ImagePlus.GRAY32)
-			process( (float[]) ip.getPixels() );
-		else if (type == ImagePlus.COLOR_RGB)
-			process( (int[]) ip.getPixels() );
-		else {
-			throw new RuntimeException("not supported");
+		for (int i = 1; i <= image.getStackSize(); i++) {
+		    ImageProcessor ip = image.getStack().getProcessor(i);
+		    int t = image.getT();
+		    int z = image.getZ();
+		    int c = image.getC();
+			ImageProcessor pip = process(ip, t, z, c);
+			stackResult.addSlice(pip);
 		}
+		
+		return new ImagePlus("TMFilt_" + image.getTitle(), stackResult);
 	}
-
-	// processing of GRAY8 images
-	public void process(byte[] pixels) {
-		for (int y=0; y < height; y++) {
-			for (int x=0; x < width; x++) {
-				// process each pixel of the line
-				// example: add 'number' to each pixel
-				pixels[x + y * width] += (byte)value;
-			}
-		}
+	
+	/** Temporal median filter / foreground probability calc for a slice */
+	public ImageProcessor process(ImageProcessor ip, int t, int z, int c) {
+	    
+	    return ip;
 	}
-
-	// processing of GRAY16 images
-	public void process(short[] pixels) {
-		for (int y=0; y < height; y++) {
-			for (int x=0; x < width; x++) {
-				// process each pixel of the line
-				// example: add 'number' to each pixel
-				pixels[x + y * width] += (short)value;
-			}
-		}
-	}
-
+/*
 	// processing of GRAY32 images
 	public void process(float[] pixels) {
 		for (int y=0; y < height; y++) {
@@ -165,18 +136,7 @@ public class Temporal_Median implements PlugInFilter {
 			}
 		}
 	}
-
-	// processing of COLOR_RGB images
-	public void process(int[] pixels) {
-		for (int y=0; y < height; y++) {
-			for (int x=0; x < width; x++) {
-				// process each pixel of the line
-				// example: add 'number' to each pixel
-				pixels[x + y * width] += (int)value;
-			}
-		}
-	}
-
+*/
 	public void showAbout() {
 		IJ.showMessage("TemporalMedian",
 			"A probabilistic temporal median filter, as described in " +
@@ -185,10 +145,9 @@ public class Temporal_Median implements PlugInFilter {
 	}
 
 	/**
-	 * Main method for debugging.
+	 * Main method for debugging. FIXME.
 	 *
-	 * For debugging - start ImageJ, load a test image, and call the 
-	 * plugin.
+	 * For debugging - start ImageJ, load a test image, call the plugin.
 	 *
 	 * @param args unused
 	 */
@@ -202,8 +161,8 @@ public class Temporal_Median implements PlugInFilter {
 		// start ImageJ
 		new ImageJ();
 
-		// open the Clown sample
-		ImagePlus image = IJ.openImage("http://imagej.net/images/clown.jpg");
+		// open TrackMate FakeTracks test data from the Fiji wiki
+		ImagePlus image = IJ.openImage("http://fiji.sc/tinevez/TrackMate/FakeTracks.tif");
 		image.show();
 
 		// run the plugin
