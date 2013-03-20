@@ -34,7 +34,7 @@ import ij.process.FloatProcessor;
 public class Temporal_Median implements PlugInFilter {
 	protected ImagePlus image;
 
-	// image property members
+	// image properties
 	private int width;
 	private int height;
 	private int nt;
@@ -101,42 +101,77 @@ public class Temporal_Median implements PlugInFilter {
 
 	/**
 	 * Process each image slice, returning new foreground ImagePlus.
+	 * Builds array of pixel arrays for sliding window of time frames.
 	 *
 	 * @param image (multi-dimensional, i.e. multiple frames)
 	 */
 	public ImagePlus process(ImagePlus image) {
+	    ImageStack inStack = image.getStack();
 	    ImageStack stackResult = new ImageStack(width, height);
 	    
-		// slice numbers start with 1 for historical reasons
-		for (int i = 1; i <= image.getStackSize(); i++) {
-		    ImageProcessor ip = image.getStack().getProcessor(i);
-		    int t = image.getT();
-		    int z = image.getZ();
-		    int c = image.getC();
-			ImageProcessor pip = process(ip, t, z, c);
-			stackResult.addSlice(pip);
-		}
-		
+	    // for all channels and slices, process sliding time window
+	    for (int c = 1; c <= nc; c++) {
+	        for (int z = 1; z <= nz; z++) {
+	            // build initial time window array of pixel arrays
+	            float[][] tWinPix = new float[2*twh + 1][width*height];
+	            int wmin = 0;  // window min index
+	            int wcurr = 0;  // index within window of current frame
+	            int wmax = twh;  // window max index
+	            for (int t = 1; t <= wmax + 1; t++) {
+	                int index = image.getStackIndex(c, z, t);
+	                tWinPix[t-1] = getfPixels(inStack, index);
+	            }
+	            // process each t and update sliding time window
+	            for (int t = 1; t <= nt; t++) {
+	                //IJ.log("t,wmin,wcurr,wmax=" + t + ","
+	                //        + wmin + "," + wcurr + "," + wmax);
+	                float[] fgPix = calcFg(tWinPix, wcurr, wmin, wmax);
+	                FloatProcessor fp2 = 
+	                        new FloatProcessor(width, height, fgPix);
+	                stackResult.addSlice((ImageProcessor)fp2);
+	                // sliding window update for next t
+	                if (t > twh) {
+	                    // remove old pixel array from start
+	                    tWinPix = rmFirst(tWinPix, wmax);
+	                } else {
+	                    wcurr += 1;
+	                    wmax += 1;	                    
+	                }
+	                if (t < nt - twh) {
+	                    // append new pixel array (frame t+twh) to end
+	                    int newPixIndex = image.getStackIndex(c, z, t+twh);
+	                    tWinPix[wmax] = getfPixels(inStack, newPixIndex);
+	                } else {
+	                    wmax -= 1;	                    
+	                }
+	            }
+	        }
+	    }
 		return new ImagePlus("TMFilt_" + image.getTitle(), stackResult);
 	}
 	
-	/** Temporal median filter / foreground probability calc for a slice */
-	public ImageProcessor process(ImageProcessor ip, int t, int z, int c) {
-	    
-	    return ip;
+	/** Remove first array of pixels and shift the others to the left. */
+	private float[][] rmFirst(float[][] tWinPix, int wmax) {
+	    for (int i=0; i < wmax; i++) {
+	        tWinPix[i] = tWinPix[i+1];
+	    }
+	    return tWinPix;
 	}
-/*
-	// processing of GRAY32 images
-	public void process(float[] pixels) {
-		for (int y=0; y < height; y++) {
-			for (int x=0; x < width; x++) {
-				// process each pixel of the line
-				// example: add 'number' to each pixel
-				pixels[x + y * width] += (float)value;
-			}
-		}
+	
+	/** Calculate foreground pixel array using for tCurr using tWinPix. */
+	private float[] calcFg(float[][] tWinPix, int wcurr, int wmin, int wmax) {
+	    return tWinPix[wcurr];
 	}
-*/
+	
+	
+	/** Return a float array of pixels for a given stack slice. */
+	private float[] getfPixels(ImageStack stack, int index) {
+	    ImageProcessor ip = stack.getProcessor(index);
+	    FloatProcessor fp = (FloatProcessor)ip.convertToFloat();
+	    float[] pix = (float[])fp.getPixels();
+	    return pix;
+	}
+	
 	public void showAbout() {
 		IJ.showMessage("TemporalMedian",
 			"A probabilistic temporal median filter, as described in " +
