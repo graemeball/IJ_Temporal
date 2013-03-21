@@ -24,6 +24,7 @@ import ij.gui.GenericDialog;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
 import ij.process.FloatProcessor;
+import java.util.Arrays;
 
 /**
  * A "probabilistic" temporal median filter to extract a foreground
@@ -163,16 +164,35 @@ public class Temporal_Median implements PlugInFilter {
 	    int numPix = width*height;
 	    float[] fgPix = new float[numPix];
 	    for (int v=0; v<numPix; v++) {
-	        float tWinAvg = 0;
+	        float[] tvec = new float[wmax - wmin + 1];
 	        for (int w=wmin; w<=wmax; w++) {
-	            tWinAvg += tWinPix[w][v]; 
+	            tvec[w] = tWinPix[w][v]; 
 	        }
-	        fgPix[v] = tWinAvg / (wmax - wmin);
+//	        float tWinAvg = 0;
+//	        for (int w=wmin; w<=wmax; w++) {
+//	            tWinAvg += tWinPix[w][v]; 
+//	        }
+//	        fgPix[v] = tWinAvg / (wmax - wmin);
+	        if (tWinPix[wcurr][v] > fmedian(tvec)) {
+	            fgPix[v] = 255.0f;
+	        } else {
+	            fgPix[v] = 0.0f;
+	        }
 	    }
 	    //return tWinPix[wcurr];
 	    return fgPix;
 	}
 	
+	/** Calculate median of array of floats. Shocking. */
+	private float fmedian(float[] m) {
+	    Arrays.sort(m);
+	    int middle = m.length/2;
+	    if (m.length % 2 == 1) {
+	        return m[middle];
+	    } else {
+	        return (m[middle-1] + m[middle]) / 2.0f;
+	    }
+	}
 	
 	/** Return a float array of pixels for a given stack slice. */
 	private float[] getfPixels(ImageStack stack, int index) {
