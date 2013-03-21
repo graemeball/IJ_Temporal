@@ -160,7 +160,17 @@ public class Temporal_Median implements PlugInFilter {
 	
 	/** Calculate foreground pixel array using for tCurr using tWinPix. */
 	private float[] calcFg(float[][] tWinPix, int wcurr, int wmin, int wmax) {
-	    return tWinPix[wcurr];
+	    int numPix = width*height;
+	    float[] fgPix = new float[numPix];
+	    for (int v=0; v<numPix; v++) {
+	        float tWinAvg = 0;
+	        for (int w=wmin; w<=wmax; w++) {
+	            tWinAvg += tWinPix[w][v]; 
+	        }
+	        fgPix[v] = tWinAvg / (wmax - wmin);
+	    }
+	    //return tWinPix[wcurr];
+	    return fgPix;
 	}
 	
 	
