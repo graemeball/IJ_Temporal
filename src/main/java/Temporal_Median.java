@@ -161,31 +161,48 @@ public class Temporal_Median implements PlugInFilter {
 	
 	/** Calculate foreground pixel array using for tCurr using tWinPix. */
 	private float[] calcFg(float[][] tWinPix, int wcurr, int wmin, int wmax) {
+	    float sd = estimStdev(tWinPix);
 	    int numPix = width*height;
 	    float[] fgPix = new float[numPix];
 	    for (int v=0; v<numPix; v++) {
-	        float[] tvec = new float[wmax - wmin + 1];
-	        for (int w=wmin; w<=wmax; w++) {
-	            tvec[w] = tWinPix[w][v]; 
-	        }
-//	        float tWinAvg = 0;
-//	        for (int w=wmin; w<=wmax; w++) {
-//	            tWinAvg += tWinPix[w][v]; 
-//	        }
-//	        fgPix[v] = tWinAvg / (wmax - wmin);
-	        if (tWinPix[wcurr][v] > fmedian(tvec)) {
-	            fgPix[v] = 255.0f;
-	        } else {
-	            fgPix[v] = 0.0f;
-	        }
+	        float[] tvec = getTvec(tWinPix, v, wmin, wmax);
+	        float median = fmedian(tvec);
+	        float currPix = tWinPix[wcurr][v]; 
+	        fgPix[v] = calcFgProb(currPix, median, sd);
 	    }
-	    //return tWinPix[wcurr];
 	    return fgPix;
+	}
+	
+	/** Build time vector for this pixel for  given window. */
+	private float[] getTvec(float[][] tWinPix, int v, int wmin, int wmax) {
+	    float[] tvec = new float[wmax - wmin + 1];
+	    for (int w=wmin; w<=wmax; w++) {
+	        tvec[w] = tWinPix[w][v];  // time window vector for a pixel
+	    }
+	    return tvec;
+	}
+	
+	/** Estimate Stdev for this time window using random 1% of tvecs. */
+	private float estimStdev(float[][] tWinPix) {
+	    float sd = 0;
+	    return sd;
+	}
+	
+	/** Calc foreground probability for a pixel using tvec median & stdev. */
+	float calcFgProb(float currPix, float median, float sd) {
+	    float fgProb;
+    	if (currPix > median) {
+    	    fgProb = 255.0f;
+    	} else {
+    	    fgProb = 0.0f;
+    	}
+    	return fgProb;
 	}
 	
 	/** Calculate median of array of floats. Shocking. */
 	private float fmedian(float[] m) {
 	    Arrays.sort(m);
+	    // as suggested by Nico Huysamen, S.O. q.4191687
 	    int middle = m.length/2;
 	    if (m.length % 2 == 1) {
 	        return m[middle];
@@ -194,11 +211,19 @@ public class Temporal_Median implements PlugInFilter {
 	    }
 	}
 	
-	/** Return a float array of pixels for a given stack slice. */
+	/** 
+	 * Return a float array of variance-stabilized pixels for a given 
+	 * stack slice - applies Anscombe transform. 
+	 */
 	private float[] getfPixels(ImageStack stack, int index) {
 	    ImageProcessor ip = stack.getProcessor(index);
 	    FloatProcessor fp = (FloatProcessor)ip.convertToFloat();
 	    float[] pix = (float[])fp.getPixels();
+	    for (int i=0; i<pix.length; i++) {
+	        double raw = (double)pix[i];
+	        double transf = 2*Math.sqrt(raw + 3/8);
+	        pix[i] = (float)transf;
+	    }
 	    return pix;
 	}
 	
