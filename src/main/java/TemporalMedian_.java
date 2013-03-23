@@ -30,11 +30,12 @@ import java.util.Arrays;
 
 /**
  * A "probabilistic" temporal median filter to extract a foreground
- * probability map from a time sequence.
+ * probability image from a time sequence.
  *
  * @author graemeball@googlemail.com
  */
-public class Temporal_Median2 implements PlugInFilter {
+public class TemporalMedian_ implements PlugInFilter {
+
 	protected ImagePlus image;
 
 	// image properties
@@ -277,7 +278,7 @@ public class Temporal_Median2 implements PlugInFilter {
 	 */
 	public static void main(String[] args) {
 		// set the plugins.dir property to make the plugin appear in the Plugins menu
-		Class<?> clazz = Temporal_Median2.class;
+		Class<?> clazz = TemporalMedian_.class;
 		String url = clazz.getResource("/" + clazz.getName().replace('.', '/') + ".class").toString();
 		String pluginsDir = url.substring(5, url.length() - clazz.getName().length() - 6);
 		System.setProperty("plugins.dir", pluginsDir);
