@@ -45,7 +45,6 @@ public class Temporal_Median implements PlugInFilter {
 	// plugin parameters
 	public int twh;     // time window half-width for median calc
 	public double nsd;  // number of stdev's above median for foreground
-	public int value = 1;   // TODO, bin this junk
 
 	/**
 	 * @see ij.plugin.filter.PlugInFilter#setup(java.lang.String, ij.ImagePlus)
@@ -182,9 +181,19 @@ public class Temporal_Median implements PlugInFilter {
 	    return tvec;
 	}
 	
-	/** Estimate Stdev for this time window using random 1% of tvecs. */
+	/** Estimate Stdev for this time window using random 0.1% of tvecs. */
 	private float estimStdev(float[][] tWinPix) {
 	    float sd = 0;
+	    int pixArrayLen = tWinPix[0].length;
+	    int samples = tWinPix.length * pixArrayLen / 1000;
+//	    for (int w=0; w<tWinPix.length; w++) {
+//	        for (int p=0; p<pixArrayLen/100; p++) {
+//	            if (Math.random() > 0.99) {
+//	                sd += 1;
+//	            }
+//	        }
+//	    }
+	    IJ.log("samples: " + samples);
 	    return sd;
 	}
 	
