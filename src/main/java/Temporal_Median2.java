@@ -26,6 +26,8 @@ import ij.process.ImageProcessor;
 import ij.process.FloatProcessor;
 import java.util.Arrays;
 
+// TODO, "soft" foreground probability
+
 /**
  * A "probabilistic" temporal median filter to extract a foreground
  * probability map from a time sequence.
@@ -76,6 +78,8 @@ public class Temporal_Median2 implements PlugInFilter {
 
 		if (showDialog()) {
 			ImagePlus imResult = process(image);
+			imResult.setDimensions(nc, nz, nt);
+			imResult.setOpenAsHyperStack(true);
 			imResult.updateAndDraw();
 			imResult.show();
 		}
@@ -110,6 +114,8 @@ public class Temporal_Median2 implements PlugInFilter {
 	    ImageStack stackResult = new ImageStack(width, height);
 	    
 	    // for all channels and slices, process sliding time window
+	    int progressCtr = 0;
+	    IJ.showStatus("Finding Foreground...");
 	    for (int c = 1; c <= nc; c++) {
 	        for (int z = 1; z <= nz; z++) {
 	            // build initial time window array of pixel arrays
@@ -123,6 +129,7 @@ public class Temporal_Median2 implements PlugInFilter {
 	            }
 	            // process each t and update sliding time window
 	            for (int t = 1; t <= nt; t++) {
+	                
 	                //IJ.log("t,wmin,wcurr,wmax=" + t + ","
 	                //        + wmin + "," + wcurr + "," + wmax);
 	                float[] fgPix = calcFg(tWinPix, wcurr, wmin, wmax);
@@ -144,6 +151,7 @@ public class Temporal_Median2 implements PlugInFilter {
 	                } else {
 	                    wmax -= 1;	                    
 	                }
+	                IJ.showProgress(progressCtr++, nc*nz*nt);
 	            }
 	        }
 	    }
