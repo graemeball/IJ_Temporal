@@ -68,7 +68,6 @@ public class TemporalMedian_ implements PlugInFilter {
             nc = 1;
             imp.setDimensions(nc, nz, nt);
         }
-		//return DOES_8G | DOES_16 | DOES_32 | DOES_RGB; 
 		return DOES_8G | DOES_16 | DOES_32 | DOES_RGB
 		        | CONVERT_TO_FLOAT | STACK_REQUIRED | NO_CHANGES;
 	}
@@ -78,10 +77,8 @@ public class TemporalMedian_ implements PlugInFilter {
 	 */
 	@Override
 	public void run(ImageProcessor ip) {
-		// get width and height
 		width = ip.getWidth();
 		height = ip.getHeight();
-
 		
 		if (showDialog()) {
 		    if (nt > (2*twh + 1)) {
@@ -139,9 +136,6 @@ public class TemporalMedian_ implements PlugInFilter {
 	            }
 	            // process each t and update sliding time window
 	            for (int t = 1; t <= nt; t++) {
-	                
-	                //IJ.log("t,wmin,wcurr,wmax=" + t + ","
-	                //        + wmin + "," + wcurr + "," + wmax);
 	                float[] fgPix = calcFg(tWinPix, wcurr, wmin, wmax);
 	                FloatProcessor fp2 = 
 	                        new FloatProcessor(width, height, fgPix);
@@ -168,12 +162,20 @@ public class TemporalMedian_ implements PlugInFilter {
 		return new ImagePlus("TMFilt_" + image.getTitle(), stackResult);
 	}
 	
-	/** Remove first array of pixels and shift the others to the left. */
-	private float[][] rmFirst(float[][] tWinPix, int wmax) {
-	    for (int i=0; i < wmax; i++) {
-	        tWinPix[i] = tWinPix[i+1];
+	/** 
+	 * Return a float array of variance-stabilized pixels for a given 
+	 * stack slice - applies Anscombe transform. 
+	 */
+	private float[] getfPixels(ImageStack stack, int index) {
+	    ImageProcessor ip = stack.getProcessor(index);
+	    FloatProcessor fp = (FloatProcessor)ip.convertToFloat();
+	    float[] pix = (float[])fp.getPixels();
+	    for (int i=0; i<pix.length; i++) {
+	        double raw = (double)pix[i];
+	        double transf = 2*Math.sqrt(raw + 3/8);
+	        pix[i] = (float)transf;
 	    }
-	    return tWinPix;
+	    return pix;
 	}
 	
 	/** Calculate foreground pixel array using for tCurr using tWinPix. */
@@ -197,6 +199,26 @@ public class TemporalMedian_ implements PlugInFilter {
 	        tvec[w] = tWinPix[w][v];  // time window vector for a pixel
 	    }
 	    return tvec;
+	}
+	
+	/** Calculate median of an array of floats. */
+	private float fmedian(float[] m) {
+	    Arrays.sort(m);
+	    // as suggested by Nico Huysamen, S.O. q.4191687
+	    int middle = m.length/2;
+	    if (m.length % 2 == 1) {
+	        return m[middle];
+	    } else {
+	        return (m[middle-1] + m[middle]) / 2.0f;
+	    }
+	}
+	
+	/** Remove first array of pixels and shift the others to the left. */
+	private float[][] rmFirst(float[][] tWinPix, int wmax) {
+	    for (int i=0; i < wmax; i++) {
+	        tWinPix[i] = tWinPix[i+1];
+	    }
+	    return tWinPix;
 	}
 	
 	/** 
@@ -288,34 +310,6 @@ public class TemporalMedian_ implements PlugInFilter {
 	    return erf;
 	}
 	
-	/** Calculate median of an array of floats. */
-	private float fmedian(float[] m) {
-	    Arrays.sort(m);
-	    // as suggested by Nico Huysamen, S.O. q.4191687
-	    int middle = m.length/2;
-	    if (m.length % 2 == 1) {
-	        return m[middle];
-	    } else {
-	        return (m[middle-1] + m[middle]) / 2.0f;
-	    }
-	}
-	
-	/** 
-	 * Return a float array of variance-stabilized pixels for a given 
-	 * stack slice - applies Anscombe transform. 
-	 */
-	private float[] getfPixels(ImageStack stack, int index) {
-	    ImageProcessor ip = stack.getProcessor(index);
-	    FloatProcessor fp = (FloatProcessor)ip.convertToFloat();
-	    float[] pix = (float[])fp.getPixels();
-	    for (int i=0; i<pix.length; i++) {
-	        double raw = (double)pix[i];
-	        double transf = 2*Math.sqrt(raw + 3/8);
-	        pix[i] = (float)transf;
-	    }
-	    return pix;
-	}
-	
 	public void showAbout() {
 		IJ.showMessage("TemporalMedian",
 			"A probabilistic temporal median filter, as described in " +
@@ -331,11 +325,7 @@ public class TemporalMedian_ implements PlugInFilter {
 	 * @param args unused
 	 */
 	public static void main(String[] args) {
-		// set the plugins.dir property to make the plugin appear in the Plugins menu
 		Class<?> clazz = TemporalMedian_.class;
-		//String url = clazz.getResource("/" + clazz.getName().replace('.', '/') + ".class").toString();
-		//String pluginsDir = url.substring(5, url.length() - clazz.getName().length() - 6);
-		//System.setProperty("plugins.dir", pluginsDir);
 		
 		// print calcErf and calcQ results in range -2->2 to check
 		for (float i=-2; i<2; i+=0.2) {

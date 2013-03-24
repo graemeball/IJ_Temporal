@@ -73,7 +73,6 @@ public class Trails_ implements PlugInFilter {
 	 */
 	@Override
 	public void run(ImageProcessor ip) {
-		// get width and height
 		width = ip.getWidth();
 		height = ip.getHeight();
 
@@ -92,15 +91,11 @@ public class Trails_ implements PlugInFilter {
 
 	private boolean showDialog() {
 		GenericDialog gd = new GenericDialog("Trails");
-
 		gd.addNumericField("time window half-width", 2, 0);
-
 		gd.showDialog();
 		if (gd.wasCanceled())
 			return false;
-
 		twh = (int)gd.getNextNumber();
-
 		return true;
 	}
 
@@ -128,8 +123,6 @@ public class Trails_ implements PlugInFilter {
 	            }
 	            // process each t and update sliding time window
 	            for (int t = 1; t <= nt; t++) {
-	                //IJ.log("t,wmin,wcurr,wmax=" + t + ","
-	                //        + wmin + "," + wcurr + "," + wmax);
 	                float[] fgPix = trail(tWinPix, wcurr, wmin, wmax);
 	                FloatProcessor fp2 = 
 	                        new FloatProcessor(width, height, fgPix);
@@ -155,13 +148,15 @@ public class Trails_ implements PlugInFilter {
 		return new ImagePlus("Trail" + Integer.toString(2*twh +1) + 
 		        "_" + image.getTitle(), stackResult);
 	}
-	
-	/** Remove first array of pixels and shift the others to the left. */
-	private float[][] rmFirst(float[][] tWinPix, int wmax) {
-	    for (int i=0; i < wmax; i++) {
-	        tWinPix[i] = tWinPix[i+1];
-	    }
-	    return tWinPix;
+
+	/** 
+	 * Return a float array of pixels for a given stack slice. 
+	 */
+	private float[] getfPixels(ImageStack stack, int index) {
+	    ImageProcessor ip = stack.getProcessor(index);
+	    FloatProcessor fp = (FloatProcessor)ip.convertToFloat();
+	    float[] pix = (float[])fp.getPixels();
+	    return pix;
 	}
 	
 	/** Trail tCurr pixels using tWinPix time window. */
@@ -193,14 +188,12 @@ public class Trails_ implements PlugInFilter {
 	    return mean / tvec.length;
 	}
 	
-	/** 
-	 * Return a float array of pixels for a given stack slice. 
-	 */
-	private float[] getfPixels(ImageStack stack, int index) {
-	    ImageProcessor ip = stack.getProcessor(index);
-	    FloatProcessor fp = (FloatProcessor)ip.convertToFloat();
-	    float[] pix = (float[])fp.getPixels();
-	    return pix;
+	/** Remove first array of pixels and shift the others to the left. */
+	private float[][] rmFirst(float[][] tWinPix, int wmax) {
+	    for (int i=0; i < wmax; i++) {
+	        tWinPix[i] = tWinPix[i+1];
+	    }
+	    return tWinPix;
 	}
 	
 	public void showAbout() {
@@ -218,11 +211,7 @@ public class Trails_ implements PlugInFilter {
 	 * @param args unused
 	 */
 	public static void main(String[] args) {
-		// set the plugins.dir property to make the plugin appear in the Plugins menu
 		Class<?> clazz = Trails_.class;
-		//String url = clazz.getResource("/" + clazz.getName().replace('.', '/') + ".class").toString();
-		//String pluginsDir = url.substring(5, url.length() - clazz.getName().length() - 6);
-		//System.setProperty("plugins.dir", pluginsDir);
 
 		// start ImageJ
 		new ImageJ();
