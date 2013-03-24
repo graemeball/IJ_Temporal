@@ -150,7 +150,7 @@ public class TemporalMedian_ implements PlugInFilter {
 	                }
 	                if (t < nt - twh) {
 	                    // append new pixel array (frame t+twh) to end
-	                    int newPixIndex = image.getStackIndex(c, z, t+twh);
+	                    int newPixIndex = image.getStackIndex(c, z, t+twh+1);
 	                    tWinPix[wmax] = getfPixels(inStack, newPixIndex);
 	                } else {
 	                    wmax -= 1;	                    
