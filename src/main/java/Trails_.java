@@ -81,14 +81,12 @@ public class Trails_ implements PlugInFilter {
 	private boolean showDialog() {
 		GenericDialog gd = new GenericDialog("Trails");
 
-		// default value is 0.00, 2 digits right of the decimal point
-		gd.addNumericField("time window half-width", 5, 0);
+		gd.addNumericField("time window half-width", 2, 0);
 
 		gd.showDialog();
 		if (gd.wasCanceled())
 			return false;
 
-		// get entered values
 		twh = (int)gd.getNextNumber();
 
 		return true;
@@ -201,6 +199,7 @@ public class Trails_ implements PlugInFilter {
 
 	/**
 	 * Main method for debugging. FIXME.
+	 * Same as TemporalMedian, but does not work. Sigh.
 	 *
 	 * For debugging - start ImageJ, load a test image, call the plugin.
 	 *
@@ -209,9 +208,9 @@ public class Trails_ implements PlugInFilter {
 	public static void main(String[] args) {
 		// set the plugins.dir property to make the plugin appear in the Plugins menu
 		Class<?> clazz = Trails_.class;
-		String url = clazz.getResource("/" + clazz.getName().replace('.', '/') + ".class").toString();
-		String pluginsDir = url.substring(5, url.length() - clazz.getName().length() - 6);
-		System.setProperty("plugins.dir", pluginsDir);
+		//String url = clazz.getResource("/" + clazz.getName().replace('.', '/') + ".class").toString();
+		//String pluginsDir = url.substring(5, url.length() - clazz.getName().length() - 6);
+		//System.setProperty("plugins.dir", pluginsDir);
 
 		// start ImageJ
 		new ImageJ();

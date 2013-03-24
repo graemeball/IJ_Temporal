@@ -26,8 +26,6 @@ import ij.process.ImageProcessor;
 import ij.process.FloatProcessor;
 import java.util.Arrays;
 
-// TODO, "soft" foreground probability
-
 /**
  * A "probabilistic" temporal median filter to extract a foreground
  * probability image from a time sequence.
@@ -47,7 +45,7 @@ public class TemporalMedian_ implements PlugInFilter {
 
 	// plugin parameters
 	public int twh;     // time window half-width for median calc
-	public double nsd;  // number of stdev's above median for foreground
+	public float nsd;  // number of stdev's above median for foreground
 
 	/**
 	 * @see ij.plugin.filter.PlugInFilter#setup(java.lang.String, ij.ImagePlus)
@@ -89,9 +87,8 @@ public class TemporalMedian_ implements PlugInFilter {
 	private boolean showDialog() {
 		GenericDialog gd = new GenericDialog("Temporal Median");
 
-		// default value is 0.00, 2 digits right of the decimal point
 		gd.addNumericField("time window half-width", 5, 0);
-		gd.addNumericField("stdevs over median for foreground", 3, 0);
+		gd.addNumericField("stdevs over median for foreground", 2.0, 1);
 
 		gd.showDialog();
 		if (gd.wasCanceled())
@@ -99,7 +96,7 @@ public class TemporalMedian_ implements PlugInFilter {
 
 		// get entered values
 		twh = (int)gd.getNextNumber();
-		nsd = gd.getNextNumber();
+		nsd = (float)gd.getNextNumber();
 
 		return true;
 	}
@@ -223,18 +220,63 @@ public class TemporalMedian_ implements PlugInFilter {
 	    return sd;
 	}
 	
-	/** Calc foreground probability for a pixel using tvec median & stdev. */
+	/** 
+	 * Calculate foreground probability for a pixel using tvec median & stdev. 
+	 * foreground probability, P(x,y,z,t) = Q(-v), where:
+	 * v = [I(x,y,z,t) - Ibg(x,y,z,t) - k*sigma]/sigma ;  
+	 * I and Ibg are Intensity and background intensity (i.e. temporal median); 
+	 * sigma is standard deviation of intensity over time ; 
+	 * Q is the Q-function (see calcQ).
+	 * 
+	 */
 	float calcFgProb(float currPix, float median, float sd) {
 	    float fgProb;
-    	if (currPix > (median + (sd*nsd))) {
-    	    fgProb = 255.0f;
-    	} else {
-    	    fgProb = 0.0f;
-    	}
+	    fgProb = (currPix - median - nsd*sd)/sd;
+	    fgProb = calcQ(-fgProb);
     	return fgProb;
 	}
 	
-	/** Calculate median of array of floats. Shocking. */
+	/**
+	 * Calculate Q-function, Q(v) = 0.5*(1 - erf(v/sqrt(2))) ; 
+     * where erf is the error function ;
+	 * see: see http://en.wikipedia.org/wiki/Q-function
+	 */
+	private static float calcQ(float v) {
+	    float root2 = 1.4142135623730950488016887f; // magic ;-)
+	    float Q;
+	    Q = (0.5f * (1.0f - calcErf(v / root2)));
+	    return Q;
+	}
+	
+	/**
+	 * Calculate the error function. See: 
+	 * http://en.wikipedia.org/wiki/Error_function
+	 */
+	private static float calcErf(float v) {
+	    // room for improvement - this approximation is fast & loose
+	    float erf;
+	    float a1 = 0.278393f;
+	    float a2 = 0.230389f;
+	    float a3 = 0.000972f;
+	    float a4 = 0.078108f;
+	    boolean neg = false;
+	    // to use approximation for -ve values of 'v', use: erf(v) = -erf(-v)
+	    if (v < 0) {
+	        v = -v;
+	        neg = true;
+	    }
+	    erf = 1.0f - (float)(1.0 / Math.pow((double)(1.0 + 
+                                        a1 * v + 
+                                        a2 * v * v +
+                                        a3 * v * v * v +
+                                        a4 * v * v * v * v), 4.0));
+	    if (neg) {
+	        erf = -erf;
+	    }
+	    return erf;
+	}
+	
+	/** Calculate median of an array of floats. */
 	private float fmedian(float[] m) {
 	    Arrays.sort(m);
 	    // as suggested by Nico Huysamen, S.O. q.4191687
@@ -270,7 +312,7 @@ public class TemporalMedian_ implements PlugInFilter {
 	}
 
 	/**
-	 * Main method for debugging. FIXME.
+	 * Main method for debugging.
 	 *
 	 * For debugging - start ImageJ, load a test image, call the plugin.
 	 *
@@ -279,9 +321,15 @@ public class TemporalMedian_ implements PlugInFilter {
 	public static void main(String[] args) {
 		// set the plugins.dir property to make the plugin appear in the Plugins menu
 		Class<?> clazz = TemporalMedian_.class;
-		String url = clazz.getResource("/" + clazz.getName().replace('.', '/') + ".class").toString();
-		String pluginsDir = url.substring(5, url.length() - clazz.getName().length() - 6);
-		System.setProperty("plugins.dir", pluginsDir);
+		//String url = clazz.getResource("/" + clazz.getName().replace('.', '/') + ".class").toString();
+		//String pluginsDir = url.substring(5, url.length() - clazz.getName().length() - 6);
+		//System.setProperty("plugins.dir", pluginsDir);
+		
+		// print calcErf and calcQ results in range -2->2 to check
+		for (float i=-2; i<2; i+=0.2) {
+		    System.out.println("erf(" + i + ") = " + calcErf(i));
+		    System.out.println("Q(" + i + ") = " + calcQ(i));
+		}
 
 		// start ImageJ
 		new ImageJ();
