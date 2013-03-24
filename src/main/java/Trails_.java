@@ -52,12 +52,18 @@ public class Trails_ implements PlugInFilter {
 			showAbout();
 			return DONE;
 		}
-
 		image = imp;
-		nt = imp.getNFrames();
-		nz = imp.getNSlices();
-		nc = imp.getNChannels();
-		//return DOES_8G | DOES_16 | DOES_32 | DOES_RGB; 
+		if (image.isHyperStack()) {
+    		nt = imp.getNFrames();
+    		nz = imp.getNSlices();
+    		nc = imp.getNChannels();
+		} else {
+		    // assume simple stack is a time sequence
+		    nt = imp.getStackSize();
+		    nz = 1;
+		    nc = 1;
+		    imp.setDimensions(nc, nz, nt);
+		}
 		return DOES_8G | DOES_16 | DOES_32 | DOES_RGB
 		        | CONVERT_TO_FLOAT | STACK_REQUIRED | NO_CHANGES;
 	}
@@ -72,9 +78,15 @@ public class Trails_ implements PlugInFilter {
 		height = ip.getHeight();
 
 		if (showDialog()) {
-			ImagePlus imResult = process(image);
-			imResult.updateAndDraw();
-			imResult.show();
+		    if (nt > (2*twh + 1)) {
+    			ImagePlus imResult = process(image);
+    			imResult.setDimensions(nc, nz, nt);
+                imResult.setOpenAsHyperStack(true);
+    			imResult.updateAndDraw();
+    			imResult.show();
+		    } else {
+                IJ.showMessage("Insufficient time points, " + nt);
+            }
 		}
 	}
 

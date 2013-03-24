@@ -56,11 +56,18 @@ public class TemporalMedian_ implements PlugInFilter {
 			showAbout();
 			return DONE;
 		}
-
 		image = imp;
-		nt = imp.getNFrames();
-		nz = imp.getNSlices();
-		nc = imp.getNChannels();
+		if (image.isHyperStack()) {
+    		nt = imp.getNFrames();
+    		nz = imp.getNSlices();
+    		nc = imp.getNChannels();
+		} else {
+            // assume simple stack is a time sequence
+            nt = imp.getStackSize();
+            nz = 1;
+            nc = 1;
+            imp.setDimensions(nc, nz, nt);
+        }
 		//return DOES_8G | DOES_16 | DOES_32 | DOES_RGB; 
 		return DOES_8G | DOES_16 | DOES_32 | DOES_RGB
 		        | CONVERT_TO_FLOAT | STACK_REQUIRED | NO_CHANGES;
@@ -75,12 +82,17 @@ public class TemporalMedian_ implements PlugInFilter {
 		width = ip.getWidth();
 		height = ip.getHeight();
 
+		
 		if (showDialog()) {
-			ImagePlus imResult = process(image);
-			imResult.setDimensions(nc, nz, nt);
-			imResult.setOpenAsHyperStack(true);
-			imResult.updateAndDraw();
-			imResult.show();
+		    if (nt > (2*twh + 1)) {
+    			ImagePlus imResult = process(image);
+    			imResult.setDimensions(nc, nz, nt);
+    			imResult.setOpenAsHyperStack(true);
+    			imResult.updateAndDraw();
+    			imResult.show();
+    		} else {
+    		    IJ.showMessage("Insufficient time points, " + nt);
+    		}
 		}
 	}
 
@@ -97,7 +109,7 @@ public class TemporalMedian_ implements PlugInFilter {
 		// get entered values
 		twh = (int)gd.getNextNumber();
 		nsd = (float)gd.getNextNumber();
-
+		
 		return true;
 	}
 
@@ -166,7 +178,7 @@ public class TemporalMedian_ implements PlugInFilter {
 	
 	/** Calculate foreground pixel array using for tCurr using tWinPix. */
 	private float[] calcFg(float[][] tWinPix, int wcurr, int wmin, int wmax) {
-	    float sd = estimStdev(tWinPix);
+	    float sd = estimStdev(tWinPix, wmin, wmax);
 	    int numPix = width*height;
 	    float[] fgPix = new float[numPix];
 	    for (int v=0; v<numPix; v++) {
@@ -191,13 +203,13 @@ public class TemporalMedian_ implements PlugInFilter {
 	 * Estimate Stdev for this time window using random 0.1% of tvecs. 
 	 * Returns the average (mean) stdev of a sample of random tvecs.
 	 */
-	private float estimStdev(float[][] tWinPix) {
+	private float estimStdev(float[][] tWinPix, int wmin, int wmax) {
 	    float sd = 0;
 	    int pixArrayLen = tWinPix[0].length;
 	    int samples = tWinPix.length * pixArrayLen / 1000;
 	    for (int n=0; n<samples; n++) {
 	        int randPix = (int)Math.floor(Math.random()*pixArrayLen);
-	        float[] tvec = getTvec(tWinPix, randPix, 0, tWinPix.length-1);
+	        float[] tvec = getTvec(tWinPix, randPix, wmin, wmax);
 	        sd += calcSD(tvec)/samples;
 	    }
 	    return sd;
