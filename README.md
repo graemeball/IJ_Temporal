@@ -3,15 +3,17 @@ Temporal Plugins
 
 This Maven project implements ImageJ 1.x plugins for time sequences:
 
-* Temporal median: finds moving foreground, see 
+* Temporal median: finds moving foreground features, see 
     Parton et al. (2011), JCB 194 (1): 121.
-* Trails: does simple averaging over a time window.
+* Trails: does simple averaging over a time window, making tracks visible.
 
 Free software, released under the GNU General Public License,
 http://www.gnu.org/licenses/gpl.html
 
 Copyright Graeme Ball (2013), graemeball@googlemail.com,
 written while working at Micron Oxford: www.micron.ox.ac.uk
+
+The latest .jar files can be found on the [Micron Oxford Website](http://www.micron.ox.ac.uk/microngroup/software/Temporal_plugins.jar)
 
 The maven project structure is derived from:
   https://github.com/imagej/minimal-ij1-plugin
