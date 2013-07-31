@@ -82,7 +82,8 @@ public class Trails_ implements PlugIn {
 	    this.width = imp.getWidth();
 	    this.height = imp.getHeight();
 	    ImageStack inStack = imp.getStack();
-	    ImageStack outStack = new ImageStack(width, height);
+	    int size = inStack.getSize();
+	    ImageStack outStack = new ImageStack(width, height, size);
 	    
 	    // for all channels and slices, process sliding time window
 	    for (int c = 1; c <= nc; c++) {
@@ -101,7 +102,9 @@ public class Trails_ implements PlugIn {
 	                float[] fgPix = trail(tWinPix, wcurr, wmin, wmax);
 	                FloatProcessor fp2 = 
 	                        new FloatProcessor(width, height, fgPix);
-	                outStack.addSlice((ImageProcessor)fp2);
+	                int index = imp.getStackIndex(c, z, t);
+	                outStack.addSlice("" + index, (ImageProcessor)fp2, index);
+	                outStack.deleteSlice(index);  // addSlice() *inserts*
 	                // sliding window update for next t
 	                if (t > twh) {
 	                    // remove old pixel array from start
@@ -112,7 +115,7 @@ public class Trails_ implements PlugIn {
 	                }
 	                if (t < nt - twh) {
 	                    // append new pixel array (frame t+twh) to end
-	                    int newPixIndex = imp.getStackIndex(c, z, t+twh+1);
+	                    int newPixIndex = imp.getStackIndex(c, z, t + twh + 1);
 	                    tWinPix[wmax] = getfPixels(inStack, newPixIndex);
 	                } else {
 	                    wmax -= 1;	                    
@@ -120,7 +123,7 @@ public class Trails_ implements PlugIn {
 	            }
 	        }
 	    }
-	    ImagePlus result = new ImagePlus("Trail" + Integer.toString(2*twh +1) 
+	    ImagePlus result = new ImagePlus("Trail" + Integer.toString(2 * twh + 1) 
 	            + "_" + imp.getTitle(), outStack);
 	    result.setDimensions(nc, nz, nt);
 	    result.setOpenAsHyperStack(true);
