@@ -26,22 +26,22 @@ import ij.process.ImageProcessor;
 import ij.process.FloatProcessor;
 
 /**
- * Trail/average intensities over a time window for an image sequence.
+ * Trail/average intensities over a time window for an imp sequence.
  *
  * @author graemeball@googlemail.com
  */
 public class Trails_ implements PlugInFilter {
-	protected ImagePlus image;
 
-	// image properties
-	private int width;
-	private int height;
-	private int nt;
-	private int nz;
-	private int nc;
+	// ImagePlus and properties
+    ImagePlus imp;
+	int width;
+	int height;
+	int nc;
+	int nz;
+	int nt;
 
-	// plugin parameters
-	public int twh;     // time window half-width for trails
+	// plugin parameters with defaults
+	public int twh = 2;     // time window half-width for trails
 
 	/**
 	 * @see ij.plugin.filter.PlugInFilter#setup(java.lang.String, ij.ImagePlus)
@@ -52,8 +52,8 @@ public class Trails_ implements PlugInFilter {
 			showAbout();
 			return DONE;
 		}
-		image = imp;
-		if (image.isHyperStack()) {
+		this.imp = imp;
+		if (imp.isHyperStack()) {
     		nt = imp.getNFrames();
     		nz = imp.getNSlices();
     		nc = imp.getNChannels();
@@ -78,7 +78,7 @@ public class Trails_ implements PlugInFilter {
 
 		if (showDialog()) {
 		    if (nt > (2*twh + 1)) {
-    			ImagePlus imResult = process(image);
+    			ImagePlus imResult = process(imp);
     			imResult.setDimensions(nc, nz, nt);
                 imResult.setOpenAsHyperStack(true);
     			imResult.updateAndDraw();
@@ -89,9 +89,9 @@ public class Trails_ implements PlugInFilter {
 		}
 	}
 
-	private boolean showDialog() {
+	boolean showDialog() {
 		GenericDialog gd = new GenericDialog("Trails");
-		gd.addNumericField("time window half-width", 2, 0);
+		gd.addNumericField("time window half-width", twh, 0);
 		gd.showDialog();
 		if (gd.wasCanceled())
 			return false;
@@ -100,10 +100,10 @@ public class Trails_ implements PlugInFilter {
 	}
 
 	/**
-	 * Process each image slice, returning new foreground ImagePlus.
+	 * Process each imp slice, returning new foreground ImagePlus.
 	 * Builds array of pixel arrays for sliding window of time frames.
 	 *
-	 * @param image (multi-dimensional, i.e. multiple frames)
+	 * @param imp (multi-dimensional, i.e. multiple frames)
 	 */
 	public ImagePlus process(ImagePlus image) {
 	    ImageStack inStack = image.getStack();
@@ -152,7 +152,7 @@ public class Trails_ implements PlugInFilter {
 	/** 
 	 * Return a float array of pixels for a given stack slice. 
 	 */
-	private float[] getfPixels(ImageStack stack, int index) {
+	float[] getfPixels(ImageStack stack, int index) {
 	    ImageProcessor ip = stack.getProcessor(index);
 	    FloatProcessor fp = (FloatProcessor)ip.convertToFloat();
 	    float[] pix = (float[])fp.getPixels();
@@ -160,18 +160,18 @@ public class Trails_ implements PlugInFilter {
 	}
 	
 	/** Trail tCurr pixels using tWinPix time window. */
-	private float[] trail(float[][] tWinPix, int wcurr, int wmin, int wmax) {
+	float[] trail(float[][] tWinPix, int wcurr, int wmin, int wmax) {
 	    int numPix = width*height;
 	    float[] tPix = new float[numPix];
 	    for (int v=0; v<numPix; v++) {
 	        float[] tvec = getTvec(tWinPix, v, wmin, wmax);
-	        tPix[v] = fmean(tvec);
+	        tPix[v] = mean(tvec);
 	    }
 	    return tPix;
 	}
 	
 	/** Build time vector for this pixel for  given window. */
-	private float[] getTvec(float[][] tWinPix, int v, int wmin, int wmax) {
+	float[] getTvec(float[][] tWinPix, int v, int wmin, int wmax) {
 	    float[] tvec = new float[wmax - wmin + 1];
 	    for (int w=wmin; w<=wmax; w++) {
 	        tvec[w] = tWinPix[w][v];  // time window vector for a pixel
@@ -179,8 +179,8 @@ public class Trails_ implements PlugInFilter {
 	    return tvec;
 	}
 	
-	/** Calculate mean of array of floats. Shocking. */
-	private float fmean(float[] tvec) {
+	/** Calculate mean of array of floats. */
+	float mean(float[] tvec) {
 	    float mean = 0;
 	    for (int t=0; t<tvec.length; t++) {
 	        mean += tvec[t];
@@ -189,7 +189,7 @@ public class Trails_ implements PlugInFilter {
 	}
 	
 	/** Remove first array of pixels and shift the others to the left. */
-	private float[][] rmFirst(float[][] tWinPix, int wmax) {
+	float[][] rmFirst(float[][] tWinPix, int wmax) {
 	    for (int i=0; i < wmax; i++) {
 	        tWinPix[i] = tWinPix[i+1];
 	    }
@@ -202,25 +202,14 @@ public class Trails_ implements PlugInFilter {
 		);
 	}
 
-	/**
-	 * Main method for debugging. FIXME.
-	 * Same as TemporalMedian, but does not work. Sigh.
-	 *
-	 * For debugging - start ImageJ, load a test image, call the plugin.
-	 *
-	 * @param args unused
-	 */
+	/** Main method for testing. */
 	public static void main(String[] args) {
 		Class<?> clazz = Trails_.class;
-
-		// start ImageJ
 		new ImageJ();
-
 		// open TrackMate FakeTracks test data from the Fiji wiki
-		ImagePlus image = IJ.openImage("http://fiji.sc/tinevez/TrackMate/FakeTracks.tif");
+		ImagePlus image = IJ.openImage(
+		        "http://fiji.sc/tinevez/TrackMate/FakeTracks.tif");
 		image.show();
-
-		// run the plugin
 		IJ.runPlugIn(clazz.getName(), "");
 	}
 }
