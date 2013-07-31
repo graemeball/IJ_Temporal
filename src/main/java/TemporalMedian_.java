@@ -21,7 +21,7 @@ import ij.ImageJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.GenericDialog;
-import ij.plugin.filter.PlugInFilter;
+import ij.plugin.PlugIn;
 import ij.process.ImageProcessor;
 import ij.process.FloatProcessor;
 import java.util.Arrays;
@@ -32,10 +32,9 @@ import java.util.Arrays;
  *
  * @author graemeball@googlemail.com
  */
-public class TemporalMedian_ implements PlugInFilter {
+public class TemporalMedian_ implements PlugIn {
 
-    // ImagePlus and properties
-    ImagePlus image;
+    // image properties
 	int width;
 	int height;
 	int nc;
@@ -46,46 +45,14 @@ public class TemporalMedian_ implements PlugInFilter {
 	public int twh = 5;       // time window half-width for median calc
 	public double nsd = 2.0;  // number of stdev's above median for foreground
 
-	/**
-	 * @see ij.plugin.filter.PlugInFilter#setup(java.lang.String, ij.ImagePlus)
-	 */
 	@Override
-	public int setup(String arg, ImagePlus imp) {
-		if (arg.equals("about")) {
-			showAbout();
-			return DONE;
-		}
-		image = imp;
-		if (image.isHyperStack()) {
-    		nt = imp.getNFrames();
-    		nz = imp.getNSlices();
-    		nc = imp.getNChannels();
-		} else {
-            // assume simple stack is a time sequence
-            nt = imp.getStackSize();
-            nz = 1;
-            nc = 1;
-            imp.setDimensions(nc, nz, nt);
-        }
-		return DOES_8G | DOES_16 | DOES_32 | DOES_RGB
-		        | CONVERT_TO_FLOAT | STACK_REQUIRED | NO_CHANGES;
-	}
-
-	/**
-	 * @see ij.plugin.filter.PlugInFilter#run(ij.process.ImageProcessor)
-	 */
-	@Override
-	public void run(ImageProcessor ip) {
-		width = ip.getWidth();
-		height = ip.getHeight();
+	public void run(String arg) {
+	    ImagePlus imp = IJ.getImage();
 		
 		if (showDialog()) {
-		    if (nt > (2*twh + 1)) {
-    			ImagePlus imResult = process(image);
-    			imResult.setDimensions(nc, nz, nt);
-    			imResult.setOpenAsHyperStack(true);
-    			imResult.updateAndDraw();
-    			imResult.show();
+		    if (imp.getNFrames() > (2*twh + 1)) {
+    			ImagePlus result = exec(imp);
+    			result.show();
     		} else {
     		    IJ.showMessage("Insufficient time points, " + nt);
     		}
@@ -107,15 +74,19 @@ public class TemporalMedian_ implements PlugInFilter {
 	}
 
 	/**
-	 * Process each imp slice, returning new foreground ImagePlus.
-	 * Builds array of pixel arrays for sliding window of time frames.
+	 * Execute temporal median filter, returning new foreground ImagePlus.
+	 * Uses array of pixel arrays for sliding window of time frames.
 	 *
 	 * @param imp (multi-dimensional, i.e. multiple frames)
 	 */
-	public ImagePlus process(ImagePlus image) {
-	    ImageStack inStack = image.getStack();
-	    ImageStack stackResult = new ImageStack(width, height);
-	    
+	public ImagePlus exec(ImagePlus imp) {
+	    this.width = imp.getWidth();
+	    this.height = imp.getHeight();
+	    this.nc = imp.getNChannels();
+	    this.nz = imp.getNSlices();
+	    this.nt = imp.getNFrames();
+	    ImageStack inStack = imp.getStack();
+	    ImageStack outStack = new ImageStack(width, height);
 	    // for all channels and slices, process sliding time window
 	    int progressCtr = 0;
 	    IJ.showStatus("Finding Foreground...");
@@ -127,7 +98,7 @@ public class TemporalMedian_ implements PlugInFilter {
 	            int wcurr = 0;  // index within window of current frame
 	            int wmax = twh;  // window max index
 	            for (int t = 1; t <= wmax + 1; t++) {
-	                int index = image.getStackIndex(c, z, t);
+	                int index = imp.getStackIndex(c, z, t);
 	                tWinPix[t - 1] = vsPixels(inStack, index);
 	            }
 	            // process each t and update sliding time window
@@ -135,7 +106,7 @@ public class TemporalMedian_ implements PlugInFilter {
 	                float[] fgPix = calcFg(tWinPix, wcurr, wmin, wmax);
 	                FloatProcessor fp2 = 
 	                        new FloatProcessor(width, height, fgPix);
-	                stackResult.addSlice((ImageProcessor)fp2);
+	                outStack.addSlice((ImageProcessor)fp2);
 	                // sliding window update for next t
 	                if (t > twh) {
 	                    // remove old pixel array from start
@@ -147,7 +118,7 @@ public class TemporalMedian_ implements PlugInFilter {
 	                if (t < nt - twh) {
 	                    // append new pixel array (frame t+twh) to end
 	                    int newPixIndex = 
-	                            image.getStackIndex(c, z, t + twh + 1);
+	                            imp.getStackIndex(c, z, t + twh + 1);
 	                    tWinPix[wmax] = vsPixels(inStack, newPixIndex);
 	                } else {
 	                    wmax -= 1;	                    
@@ -156,14 +127,17 @@ public class TemporalMedian_ implements PlugInFilter {
 	            }
 	        }
 	    }
-		return new ImagePlus("TMFilt_" + image.getTitle(), stackResult);
+	    ImagePlus result = new ImagePlus("FG_" + imp.getTitle(), outStack);
+	    result.setDimensions(nc, nz, nt);
+	    result.setOpenAsHyperStack(true);
+		return result;
 	}
 	
 	/** 
 	 * Return a float array of variance-stabilized pixels for a given 
 	 * stack slice - applies Anscombe transform. 
 	 */
-	float[] vsPixels(ImageStack stack, int index) {
+	final float[] vsPixels(ImageStack stack, int index) {
 	    ImageProcessor ip = stack.getProcessor(index);
 	    FloatProcessor fp = (FloatProcessor)ip.convertToFloat();
 	    float[] pix = (float[])fp.getPixels();
@@ -176,9 +150,9 @@ public class TemporalMedian_ implements PlugInFilter {
 	}
 	
 	/** Calculate foreground pixel array using for tCurr using tWinPix. */
-	float[] calcFg(float[][] tWinPix, int wcurr, int wmin, int wmax) {
+	final float[] calcFg(float[][] tWinPix, int wcurr, int wmin, int wmax) {
 	    float sd = estimStdev(tWinPix, wmin, wmax);
-	    int numPix = width*height;
+	    int numPix = width * height;
 	    float[] fgPix = new float[numPix];
 	    for (int v = 0; v < numPix; v++) {
 	        float[] tvec = getTvec(tWinPix, v, wmin, wmax);
@@ -190,7 +164,7 @@ public class TemporalMedian_ implements PlugInFilter {
 	}
 	
 	/** Build time vector for this pixel for  given window. */
-	float[] getTvec(float[][] tWinPix, int v, int wmin, int wmax) {
+	final float[] getTvec(float[][] tWinPix, int v, int wmin, int wmax) {
 	    float[] tvec = new float[wmax - wmin + 1];
 	    for (int w = wmin; w <= wmax; w++) {
 	        tvec[w] = tWinPix[w][v];  // time window vector for a pixel
@@ -199,7 +173,7 @@ public class TemporalMedian_ implements PlugInFilter {
 	}
 	
 	/** Calculate median of an array of floats. */
-	float median(float[] m) {
+	final float median(float[] m) {
 	    Arrays.sort(m);
 	    int middle = m.length / 2;
 	    if (m.length % 2 == 1) {
@@ -210,7 +184,7 @@ public class TemporalMedian_ implements PlugInFilter {
 	}
 	
 	/** Remove first array of pixels and shift the others to the left. */
-	float[][] rmFirst(float[][] tWinPix, int wmax) {
+	final float[][] rmFirst(float[][] tWinPix, int wmax) {
 	    for (int i=0; i < wmax; i++) {
 	        tWinPix[i] = tWinPix[i + 1];
 	    }
@@ -221,7 +195,7 @@ public class TemporalMedian_ implements PlugInFilter {
 	 * Estimate Stdev for this time window using random 0.1% of tvecs. 
 	 * Returns the average (mean) stdev of a sample of random tvecs.
 	 */
-	float estimStdev(float[][] tWinPix, int wmin, int wmax) {
+	final float estimStdev(float[][] tWinPix, int wmin, int wmax) {
 	    float sd = 0;
 	    int pixArrayLen = tWinPix[0].length;
 	    int samples = tWinPix.length * pixArrayLen / 1000;
@@ -234,7 +208,7 @@ public class TemporalMedian_ implements PlugInFilter {
 	}
 	
 	/** Standard deviation of a vector of float values. */
-	float calcSD(float[] vec) {
+	final float calcSD(float[] vec) {
 	    float sd = 0;
 	    float mean = 0;
 	    float variance = 0;
@@ -259,7 +233,7 @@ public class TemporalMedian_ implements PlugInFilter {
 	 * Q is the Q-function (see calcQ).
 	 * 
 	 */
-	float calcFgProb(float currPix, float median, float sd) {
+	final float calcFgProb(float currPix, float median, float sd) {
 	    float fgProb;
 	    fgProb = (currPix - median - (float)nsd * sd) / sd;
 	    fgProb = calcQ(-fgProb);
@@ -271,8 +245,8 @@ public class TemporalMedian_ implements PlugInFilter {
      * where erf is the error function ;
 	 * see: see http://en.wikipedia.org/wiki/Q-function
 	 */
-	static float calcQ(float v) {
-	    float root2 = 1.4142135623730950488016887f; // magic ;-)
+	static final float calcQ(float v) {
+	    final float root2 = 1.4142135623730950488016887f; // magic ;-)
 	    float Q;
 	    Q = (0.5f * (1.0f - calcErf(v / root2)));
 	    return Q;
@@ -282,13 +256,13 @@ public class TemporalMedian_ implements PlugInFilter {
 	 * Calculate the error function. See e.g.: 
 	 * http://en.wikipedia.org/wiki/Error_function
 	 */
-	static float calcErf(float v) {
+	static final float calcErf(float v) {
 	    // room for improvement - this approximation is fast & loose
 	    float erf;
-	    float a1 = 0.278393f;
-	    float a2 = 0.230389f;
-	    float a3 = 0.000972f;
-	    float a4 = 0.078108f;
+	    final float a1 = 0.278393f;
+	    final float a2 = 0.230389f;
+	    final float a3 = 0.000972f;
+	    final float a4 = 0.078108f;
 	    boolean neg = false;
 	    // to use approximation for -ve values of 'v', use: erf(v) = -erf(-v)
 	    if (v < 0) {
