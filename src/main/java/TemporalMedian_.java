@@ -61,8 +61,8 @@ public class TemporalMedian_ implements PlugIn {
 
 	boolean showDialog() {
 		GenericDialog gd = new GenericDialog("Temporal Median");
-		gd.addNumericField("time window half-width", twh, 0);
-		gd.addNumericField("stdevs over median for foreground", nsd, 1);
+		gd.addNumericField("time_window half-width", twh, 0);
+		gd.addNumericField("foreground_stdevs over median", nsd, 1);
 		gd.showDialog();
 		if (gd.wasCanceled()) {
 			return false;
@@ -289,6 +289,12 @@ public class TemporalMedian_ implements PlugIn {
 			"Parton et al. (2011), JCB 194 (1): 121."
 		);
 	}
+//	public void showAbout() {
+//		IJ.showMessage("TemporalMedian",
+//			"A probabilistic temporal median filter, as described in " +
+//			"Parton et al. (2011), JCB 194 (1): 121."
+//		);
+//	}
 
 	/** Main method for debugging - loads a test imp from Fiji wiki. */
 	public static void main(String[] args) {

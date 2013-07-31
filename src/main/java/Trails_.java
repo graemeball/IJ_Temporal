@@ -61,7 +61,7 @@ public class Trails_ implements PlugIn {
 
 	boolean showDialog() {
 		GenericDialog gd = new GenericDialog("Trails");
-		gd.addNumericField("time window half-width", twh, 0);
+		gd.addNumericField("time_window half-width", twh, 0);
 		gd.showDialog();
 		if (gd.wasCanceled())
 			return false;
