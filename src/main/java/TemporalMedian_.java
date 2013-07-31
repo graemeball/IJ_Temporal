@@ -86,7 +86,8 @@ public class TemporalMedian_ implements PlugIn {
 	    this.nz = imp.getNSlices();
 	    this.nt = imp.getNFrames();
 	    ImageStack inStack = imp.getStack();
-	    ImageStack outStack = new ImageStack(width, height);
+	    int size = inStack.getSize();
+	    ImageStack outStack = new ImageStack(width, height, size);
 	    // for all channels and slices, process sliding time window
 	    int progressCtr = 0;
 	    IJ.showStatus("Finding Foreground...");
@@ -106,7 +107,9 @@ public class TemporalMedian_ implements PlugIn {
 	                float[] fgPix = calcFg(tWinPix, wcurr, wmin, wmax);
 	                FloatProcessor fp2 = 
 	                        new FloatProcessor(width, height, fgPix);
-	                outStack.addSlice((ImageProcessor)fp2);
+	                int index = imp.getStackIndex(c, z, t);
+                    outStack.addSlice("" + index, (ImageProcessor)fp2, index);
+                    outStack.deleteSlice(index);  // addSlice() *inserts*
 	                // sliding window update for next t
 	                if (t > twh) {
 	                    // remove old pixel array from start
