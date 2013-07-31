@@ -21,7 +21,7 @@ import ij.ImageJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.GenericDialog;
-import ij.plugin.filter.PlugInFilter;
+import ij.plugin.PlugIn;
 import ij.process.ImageProcessor;
 import ij.process.FloatProcessor;
 
@@ -30,7 +30,7 @@ import ij.process.FloatProcessor;
  *
  * @author graemeball@googlemail.com
  */
-public class Trails_ implements PlugInFilter {
+public class Trails_ implements PlugIn {
 
 	// ImagePlus and properties
     ImagePlus imp;
@@ -44,44 +44,14 @@ public class Trails_ implements PlugInFilter {
 	public int twh = 2;     // time window half-width for trails
 
 	/**
-	 * @see ij.plugin.filter.PlugInFilter#setup(java.lang.String, ij.ImagePlus)
-	 */
-	@Override
-	public int setup(String arg, ImagePlus imp) {
-		if (arg.equals("about")) {
-			showAbout();
-			return DONE;
-		}
-		this.imp = imp;
-		if (imp.isHyperStack()) {
-    		nt = imp.getNFrames();
-    		nz = imp.getNSlices();
-    		nc = imp.getNChannels();
-		} else {
-		    // assume simple stack is a time sequence
-		    nt = imp.getStackSize();
-		    nz = 1;
-		    nc = 1;
-		    imp.setDimensions(nc, nz, nt);
-		}
-		return DOES_8G | DOES_16 | DOES_32 | DOES_RGB
-		        | CONVERT_TO_FLOAT | STACK_REQUIRED | NO_CHANGES;
-	}
-
-	/**
 	 * @see ij.plugin.filter.PlugInFilter#run(ij.process.ImageProcessor)
 	 */
 	@Override
-	public void run(ImageProcessor ip) {
-		width = ip.getWidth();
-		height = ip.getHeight();
-
+	public void run(String arg) {
+	    ImagePlus imp = IJ.getImage();
 		if (showDialog()) {
-		    if (nt > (2*twh + 1)) {
-    			ImagePlus imResult = process(imp);
-    			imResult.setDimensions(nc, nz, nt);
-                imResult.setOpenAsHyperStack(true);
-    			imResult.updateAndDraw();
+		    if (imp.getNFrames() > (2 * twh + 1)) {
+    			ImagePlus imResult = exec(imp);
     			imResult.show();
 		    } else {
                 IJ.showMessage("Insufficient time points, " + nt);
@@ -100,25 +70,30 @@ public class Trails_ implements PlugInFilter {
 	}
 
 	/**
-	 * Process each imp slice, returning new foreground ImagePlus.
+	 * Execute time-averaging, returning trailed ImagePlus.
 	 * Builds array of pixel arrays for sliding window of time frames.
 	 *
 	 * @param imp (multi-dimensional, i.e. multiple frames)
 	 */
-	public ImagePlus process(ImagePlus image) {
-	    ImageStack inStack = image.getStack();
-	    ImageStack stackResult = new ImageStack(width, height);
+	public ImagePlus exec(ImagePlus imp) {
+	    this.nt = imp.getNFrames();
+	    this.nz = imp.getNSlices();
+	    this.nc = imp.getNChannels();
+	    this.width = imp.getWidth();
+	    this.height = imp.getHeight();
+	    ImageStack inStack = imp.getStack();
+	    ImageStack outStack = new ImageStack(width, height);
 	    
 	    // for all channels and slices, process sliding time window
 	    for (int c = 1; c <= nc; c++) {
 	        for (int z = 1; z <= nz; z++) {
 	            // build initial time window array of pixel arrays
-	            float[][] tWinPix = new float[2*twh + 1][width*height];
+	            float[][] tWinPix = new float[2 * twh + 1][width * height];
 	            int wmin = 0;  // window min index
 	            int wcurr = 0;  // index within window of current frame
 	            int wmax = twh;  // window max index
 	            for (int t = 1; t <= wmax + 1; t++) {
-	                int index = image.getStackIndex(c, z, t);
+	                int index = imp.getStackIndex(c, z, t);
 	                tWinPix[t-1] = getfPixels(inStack, index);
 	            }
 	            // process each t and update sliding time window
@@ -126,7 +101,7 @@ public class Trails_ implements PlugInFilter {
 	                float[] fgPix = trail(tWinPix, wcurr, wmin, wmax);
 	                FloatProcessor fp2 = 
 	                        new FloatProcessor(width, height, fgPix);
-	                stackResult.addSlice((ImageProcessor)fp2);
+	                outStack.addSlice((ImageProcessor)fp2);
 	                // sliding window update for next t
 	                if (t > twh) {
 	                    // remove old pixel array from start
@@ -137,7 +112,7 @@ public class Trails_ implements PlugInFilter {
 	                }
 	                if (t < nt - twh) {
 	                    // append new pixel array (frame t+twh) to end
-	                    int newPixIndex = image.getStackIndex(c, z, t+twh+1);
+	                    int newPixIndex = imp.getStackIndex(c, z, t+twh+1);
 	                    tWinPix[wmax] = getfPixels(inStack, newPixIndex);
 	                } else {
 	                    wmax -= 1;	                    
@@ -145,14 +120,17 @@ public class Trails_ implements PlugInFilter {
 	            }
 	        }
 	    }
-		return new ImagePlus("Trail" + Integer.toString(2*twh +1) + 
-		        "_" + image.getTitle(), stackResult);
+	    ImagePlus result = new ImagePlus("Trail" + Integer.toString(2*twh +1) 
+	            + "_" + imp.getTitle(), outStack);
+	    result.setDimensions(nc, nz, nt);
+	    result.setOpenAsHyperStack(true);
+		return result;
 	}
 
 	/** 
 	 * Return a float array of pixels for a given stack slice. 
 	 */
-	float[] getfPixels(ImageStack stack, int index) {
+	final float[] getfPixels(ImageStack stack, int index) {
 	    ImageProcessor ip = stack.getProcessor(index);
 	    FloatProcessor fp = (FloatProcessor)ip.convertToFloat();
 	    float[] pix = (float[])fp.getPixels();
@@ -160,7 +138,7 @@ public class Trails_ implements PlugInFilter {
 	}
 	
 	/** Trail tCurr pixels using tWinPix time window. */
-	float[] trail(float[][] tWinPix, int wcurr, int wmin, int wmax) {
+	final float[] trail(float[][] tWinPix, int wcurr, int wmin, int wmax) {
 	    int numPix = width*height;
 	    float[] tPix = new float[numPix];
 	    for (int v=0; v<numPix; v++) {
@@ -171,7 +149,7 @@ public class Trails_ implements PlugInFilter {
 	}
 	
 	/** Build time vector for this pixel for  given window. */
-	float[] getTvec(float[][] tWinPix, int v, int wmin, int wmax) {
+	final float[] getTvec(float[][] tWinPix, int v, int wmin, int wmax) {
 	    float[] tvec = new float[wmax - wmin + 1];
 	    for (int w=wmin; w<=wmax; w++) {
 	        tvec[w] = tWinPix[w][v];  // time window vector for a pixel
@@ -180,7 +158,7 @@ public class Trails_ implements PlugInFilter {
 	}
 	
 	/** Calculate mean of array of floats. */
-	float mean(float[] tvec) {
+	final float mean(float[] tvec) {
 	    float mean = 0;
 	    for (int t=0; t<tvec.length; t++) {
 	        mean += tvec[t];
@@ -189,7 +167,7 @@ public class Trails_ implements PlugInFilter {
 	}
 	
 	/** Remove first array of pixels and shift the others to the left. */
-	float[][] rmFirst(float[][] tWinPix, int wmax) {
+	final float[][] rmFirst(float[][] tWinPix, int wmax) {
 	    for (int i=0; i < wmax; i++) {
 	        tWinPix[i] = tWinPix[i+1];
 	    }
