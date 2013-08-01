@@ -43,9 +43,6 @@ public class Trails_ implements PlugIn {
 	// plugin parameters with defaults
 	public int twh = 2;     // time window half-width for trails
 
-	/**
-	 * @see ij.plugin.filter.PlugInFilter#run(ij.process.ImageProcessor)
-	 */
 	@Override
 	public void run(String arg) {
 	    ImagePlus imp = IJ.getImage();
