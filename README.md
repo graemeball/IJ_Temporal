@@ -3,7 +3,7 @@ Temporal Plugins
 
 This Maven project implements ImageJ 1.x plugins for time sequences:
 
-* Temporal median: finds moving foreground features, see 
+* Temporal median: finds moving foreground features, see
     Parton et al. (2011), JCB 194 (1): 121.
 * Trails: does simple averaging over a time window, making tracks visible.
 
@@ -19,12 +19,12 @@ The latest .jar files can be found on the [Micron Oxford Website](http://www.mic
 
 The maven project structure is derived from:
   https://github.com/imagej/minimal-ij1-plugin
-  
+
 Temporal Median filter
 ----------------------
 
 This plugin can be used to find moving foreground features, which can be
-be a powerful way to suppress false background detections in subsequent 
+be a powerful way to suppress false background detections in subsequent
 tracking steps.
 
 * set time window, and standard deviations above background for foreground
@@ -32,7 +32,7 @@ tracking steps.
     to traverse a pixel (NB. total window is 2x half-width +1)
 * moving foreground identified by intensity increase relative to background
     average (i.e. median) for a pixel over a given time window
-* "soft" segmenation, yielding foreground probability related to excess 
+* "soft" segmenation, yielding foreground probability related to excess
     intensity (in standard deviations) over background level
 * crude Anscombe transform applied to data to stabilize the variance
 
