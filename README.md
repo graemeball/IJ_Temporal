@@ -15,7 +15,7 @@ http://www.gnu.org/licenses/gpl.html
 Copyright Graeme Ball (2013), graemeball@googlemail.com,
 written while working at Micron Oxford: www.micron.ox.ac.uk
 
-**THE LATEST .jar FILES can be found on the [Micron Oxford Website](http://www.micron.ox.ac.uk/microngroup/software/Temporal_plugins.jar)**
+**Latest .jar files for DOWNLOAD on the [Micron Oxford Website](http://www.micron.ox.ac.uk/microngroup/software/Temporal_plugins.jar)**
 
 The maven project structure is derived from:
   https://github.com/imagej/minimal-ij1-plugin
